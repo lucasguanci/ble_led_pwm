@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-pkg.name: apps/ble_prph
+pkg.name: apps/ble_led_pwm
 pkg.type: app
-pkg.description: Simple BLE peripheral application.
-pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
-pkg.homepage: "http://mynewt.apache.org/"
+pkg.description: Simple BLE peripheral application to drive three LED (R,G,B) using PWM.
+pkg.author: luca sguanci <luca.sguanci@gmail.com> 
+pkg.homepage: 
 pkg.keywords:
 
 pkg.apis:
