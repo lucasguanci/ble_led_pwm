@@ -69,6 +69,7 @@ static uint16_t gatt_rgb_val_len;
 static uint8_t rgb_red_val;
 static uint8_t rgb_green_val;
 static uint8_t rgb_blue_val;
+uint8_t colorArray[3] = {0};
 
 static int
 gatt_svr_chr_access_rgb(uint16_t conn_handle, uint16_t attr_handle,
@@ -143,8 +144,11 @@ gatt_svr_chr_access_rgb(uint16_t conn_handle, uint16_t attr_handle,
         rgb_green_val = (gatt_rgb_val & 0x00ff0000) >> 16;
         rgb_blue_val = gatt_rgb_val >> 24;
         BLEPRPH_LOG(DEBUG, "wrote: %u, rgb_red_val:%u\n", gatt_rgb_val, rgb_red_val);
+        colorArray[0] = rgb_red_val;
+        colorArray[1] = rgb_green_val;
+        colorArray[2] = rgb_blue_val;
         uint8_t *arg;
-        arg = &rgb_blue_val;
+        arg = &colorArray[0];
         change_brightness_enqueue_evt(arg);
       }
       return rc;

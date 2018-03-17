@@ -51,7 +51,7 @@ static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
 /** PWM **/
 struct pwm_dev *pwm;
 static uint16_t top_val;
-uint16_t pwm_val;
+uint16_t pwm_val[3];
 
 /** PWM task handler **/
 #define PWM_TASK_PRIO   5
@@ -317,52 +317,70 @@ int
 pwm_init(void)
 {
     struct pwm_chan_cfg chan_conf = {
-      .pin = 29,
       .inverted = false, /* set to true for internal leds */
       .n_cycles = 0, /* loop mode */
       .interrupts_cfg = false,
       .data = NULL,
     };
-    int rc;
+    int rc, i;
 
     pwm = (struct pwm_dev *) os_dev_open("pwm0", 0, NULL);
 
     /* set the PWM frequency */
     pwm_set_frequency(pwm, 1000);
     top_val = (uint16_t) pwm_get_top_value(pwm);
-    pwm_val = top_val;
 
-    /* setup led 1 */
+    /* setup led RED */
+    chan_conf.pin = 31;
     rc = pwm_chan_config(pwm, 0, &chan_conf);
     assert(rc == 0);
-
-    rc = pwm_enable_duty_cycle(pwm, 0, pwm_val);
+    /* setup led GREEN */
+    chan_conf.pin = 30;
+    rc = pwm_chan_config(pwm, 1, &chan_conf);
     assert(rc == 0);
+    /* setup led BLUE */
+    chan_conf.pin = 29;
+    rc = pwm_chan_config(pwm, 2, &chan_conf);
+    assert(rc == 0);
+
+    /* init LED brightness to top_val */
+    for ( i=0; i<3; i++ ) {
+      pwm_val[i] = top_val;
+      rc = pwm_enable_duty_cycle(pwm, i, pwm_val[i]);
+      assert(rc == 0);
+    }
 
     return rc;
 }
 
 void pwm_task_handler(void *arg) {
-  int rc;
+
+  int rc, i;
+
   while(1) {
     /* Wait 1/10 seconds */
     os_time_delay(OS_TICKS_PER_SEC/20);
+
     /* Re-enable duty cycle */
-    rc = pwm_enable_duty_cycle(pwm, 0, pwm_val);
-    assert(rc == 0);
+    for ( i=0; i<3; i++ ) {
+      rc = pwm_enable_duty_cycle(pwm, i, pwm_val[i]);
+      assert(rc == 0);
+    }
   }
 }
 
 /* event callback handler */
 static void change_brightness_ev(struct os_event *ev) {
 
-  int rc;
+  int rc, i;
   uint8_t *brightness;
 
   brightness = ev->ev_arg;
-  pwm_val = (uint16_t) ((top_val*(float)(*brightness))/255.0);
-  /* re-enable pwm */
-  rc = pwm_enable_duty_cycle(pwm, 0, pwm_val);
+  for ( i=0; i<3; i++ ) {
+    pwm_val[i] = (uint16_t) ((top_val*(float)(brightness[i]))/255.0);
+    rc = pwm_enable_duty_cycle(pwm, i, pwm_val[i]);
+  }
+
   assert(rc == 0);
 
 }
