@@ -30,6 +30,9 @@
 #include "hal/hal_system.h"
 #include "config/config.h"
 #include "split/split.h"
+/* pwm include */
+#include <pwm/pwm.h>
+#include "syscfg/syscfg.h"
 
 /* BLE */
 #include "nimble/ble.h"
@@ -44,6 +47,19 @@
 struct log bleprph_log;
 
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
+
+/** PWM **/
+struct pwm_dev *pwm;
+static uint16_t top_val;
+uint16_t pwm_val;
+
+/** PWM task handler **/
+#define PWM_TASK_PRIO   5
+#define PWM_STACK_SIZE  (OS_STACK_ALIGN(336))
+struct os_task pwm_task;
+os_stack_t pwm_task_stack[PWM_STACK_SIZE];
+
+//void change_brightness_enqueue_evt(uint8_t *brightness);
 
 /**
  * Logs information about a connection to the console.
@@ -295,6 +311,86 @@ bleprph_on_sync(void)
 }
 
 /**
+  PWM
+ */
+int
+pwm_init(void)
+{
+    struct pwm_chan_cfg chan_conf = {
+      .pin = 29,
+      .inverted = false, /* set to true for internal leds */
+      .n_cycles = 0, /* loop mode */
+      .interrupts_cfg = false,
+      .data = NULL,
+    };
+    int rc;
+
+    pwm = (struct pwm_dev *) os_dev_open("pwm0", 0, NULL);
+
+    /* set the PWM frequency */
+    pwm_set_frequency(pwm, 1000);
+    top_val = (uint16_t) pwm_get_top_value(pwm);
+    pwm_val = top_val;
+
+    /* setup led 1 */
+    rc = pwm_chan_config(pwm, 0, &chan_conf);
+    assert(rc == 0);
+
+    rc = pwm_enable_duty_cycle(pwm, 0, pwm_val);
+    assert(rc == 0);
+
+    return rc;
+}
+
+void pwm_task_handler(void *arg) {
+  int rc;
+  while(1) {
+    /* Wait 1/10 seconds */
+    os_time_delay(OS_TICKS_PER_SEC/20);
+    /* Re-enable duty cycle */
+    rc = pwm_enable_duty_cycle(pwm, 0, pwm_val);
+    assert(rc == 0);
+  }
+}
+
+/* event callback handler */
+static void change_brightness_ev(struct os_event *ev) {
+
+  int rc;
+  uint8_t *brightness;
+
+  brightness = ev->ev_arg;
+  pwm_val = (uint16_t) ((top_val*(float)(*brightness))/255.0);
+  /* re-enable pwm */
+  rc = pwm_enable_duty_cycle(pwm, 0, pwm_val);
+  assert(rc == 0);
+
+}
+
+/* event enqueuer */
+void change_brightness_enqueue_evt(uint8_t *brightness) {
+  struct os_event *ev;
+
+  /* Allocates memory for the event */
+  ev = (struct os_event *) os_malloc(sizeof(struct os_event));
+
+  if ( !ev ) {
+    ;
+  } else {
+    /*
+     * Initializes the event with the callback function
+     * and the data for the callback function to use.
+     */
+    ev->ev_queued = 0;
+    ev->ev_cb = change_brightness_ev;
+    ev->ev_arg = brightness;
+
+    /* Enqueues the event on the dflt_evt_queue */
+    os_eventq_put(os_eventq_dflt_get(), ev);
+  }
+}
+
+/**
  * main
  *
  * The main task for the project. This function initializes the packages,
@@ -347,6 +443,12 @@ main(void)
         }
     }
 #endif
+
+    pwm_init();
+
+    /* init pwm task */
+    os_task_init(&pwm_task, "pwm_task", pwm_task_handler, NULL,
+            PWM_TASK_PRIO, OS_WAIT_FOREVER, pwm_task_stack, PWM_STACK_SIZE);
 
     /*
      * As the last thing, process events from default event queue.

@@ -143,9 +143,9 @@ gatt_svr_chr_access_rgb(uint16_t conn_handle, uint16_t attr_handle,
         rgb_green_val = (gatt_rgb_val & 0x00ff0000) >> 16;
         rgb_blue_val = gatt_rgb_val >> 24;
         BLEPRPH_LOG(DEBUG, "wrote: %u, rgb_red_val:%u\n", gatt_rgb_val, rgb_red_val);
-        // uint8_t *arg;
-        // arg = &rgb_blue_val;
-        // change_brightness_enqueue_evt(arg);
+        uint8_t *arg;
+        arg = &rgb_blue_val;
+        change_brightness_enqueue_evt(arg);
       }
       return rc;
    default:
