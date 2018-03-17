@@ -56,6 +56,30 @@ gatt_svr_chr_access_sec_test(uint16_t conn_handle, uint16_t attr_handle,
                              struct ble_gatt_access_ctxt *ctxt,
                              void *arg);
 
+/* RGB */
+/* 0B58D86D-001A-4FC8-A547-064AEEA13880 */
+static const ble_uuid128_t gatt_svr_svc_rgb_uuid =
+ BLE_UUID128_INIT(0x80, 0x38, 0xa1, 0xee, 0x4a, 0x06, 0x47, 0xa5, 0xc8, 0x4f, 0x1a, 0x00, 0x6d, 0xd8, 0x58, 0x0b);
+#define RGB_TYPE 0xDEAD
+#define RGB_STRING "setting RGB color"
+#define RGB_VAL 0xBEAD
+
+static uint32_t gatt_rgb_val;
+static uint16_t gatt_rgb_val_len;
+static uint8_t rgb_red_val;
+static uint8_t rgb_green_val;
+static uint8_t rgb_blue_val;
+
+static int
+gatt_svr_chr_access_rgb(uint16_t conn_handle, uint16_t attr_handle,
+ struct ble_gatt_access_ctxt *ctxt,
+ void *arg);
+
+ static int
+ gatt_svr_chr_write(struct os_mbuf *om, uint16_t min_len, uint16_t max_len,
+                    void *dst, uint16_t *len);
+
+
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
         /*** Service: Security test. */
@@ -75,12 +99,60 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         }, {
             0, /* No more characteristics in this service. */
         } },
+        /*** Service: RGB. */
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &gatt_svr_svc_rgb_uuid.u,
+        .characteristics = (struct ble_gatt_chr_def[]) { {
+            /*** Characteristic: Red. */
+            .uuid = BLE_UUID16_DECLARE(RGB_VAL),
+            .access_cb = gatt_svr_chr_access_rgb,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+        }, {
+            0, /* No more characteristics in this service. */
+        } },
     },
 
     {
         0, /* No more services. */
     },
 };
+
+static int
+gatt_svr_chr_access_rgb(uint16_t conn_handle, uint16_t attr_handle,
+                             struct ble_gatt_access_ctxt *ctxt,
+                             void *arg)
+{
+  uint16_t uuid16;
+  int rc=0;
+
+  uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+
+  /* Determine which characteristic is being accessed by examining its
+   * 128-bit UUID.
+   */
+  switch (uuid16) {
+    case RGB_VAL:
+      if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
+        rc = gatt_svr_chr_write(ctxt->om, 0,
+                               sizeof gatt_rgb_val,
+                               &gatt_rgb_val,
+                               &gatt_rgb_val_len);
+        /* parse instructions into parts */
+        /* 0 | 1*/
+        rgb_red_val = (gatt_rgb_val & 0x0000ff00) >> 8;
+        rgb_green_val = (gatt_rgb_val & 0x00ff0000) >> 16;
+        rgb_blue_val = gatt_rgb_val >> 24;
+        BLEPRPH_LOG(DEBUG, "wrote: %u, rgb_red_val:%u\n", gatt_rgb_val, rgb_red_val);
+        // uint8_t *arg;
+        // arg = &rgb_blue_val;
+        // change_brightness_enqueue_evt(arg);
+      }
+      return rc;
+   default:
+      assert(0);
+      return BLE_ATT_ERR_UNLIKELY;
+  }
+}
 
 static int
 gatt_svr_chr_write(struct os_mbuf *om, uint16_t min_len, uint16_t max_len,
