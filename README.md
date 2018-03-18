@@ -1,5 +1,5 @@
 # BLE led stripe
-Bluetooth Low Energy app based on Apache Mynewt OS to drive an RGB led stripe using hardware PWM on a nRF52 Development Kit.
+Bluetooth Low Energy app (beta version) based on Apache Mynewt OS to drive an RGB led stripe using hardware PWM on a nRF52 Development Kit.
 
 The app is based on the [BLE peripheral project](https://mynewt.apache.org/latest/os/tutorials/bleprph/bleprph-intro/) and uses PWM to control the color of an RGB led stripe.
 The app uses mynewt master branch.
